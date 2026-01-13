@@ -1,0 +1,11 @@
+{
+  "id": "medical",
+  "name": "Medical Guidance",
+  "version": "1.0.0",
+  "description": "Basic medical information and first aid guidance",
+  "modes": ["emergency", "hybrid"],
+  "reading_levels": ["general", "technical"],
+  "languages": ["en"],
+  "safety_profile": "strict",
+  "requires_auditor": true
+}

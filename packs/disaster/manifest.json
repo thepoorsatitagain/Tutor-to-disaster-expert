@@ -1,0 +1,11 @@
+{
+  "id": "disaster",
+  "name": "Disaster Response",
+  "version": "1.0.0",
+  "description": "Emergency guidance for natural disasters and crises",
+  "modes": ["emergency", "hybrid"],
+  "reading_levels": ["child", "general"],
+  "languages": ["en"],
+  "safety_profile": "strict",
+  "requires_auditor": true
+}

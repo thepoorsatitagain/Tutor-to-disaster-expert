@@ -1,0 +1,11 @@
+{
+  "id": "education",
+  "name": "General Education",
+  "version": "1.0.0",
+  "description": "General education and tutoring for all ages and levels",
+  "modes": ["education", "hybrid"],
+  "reading_levels": ["child", "teen", "general", "technical", "expert"],
+  "languages": ["en"],
+  "safety_profile": "standard",
+  "requires_auditor": true
+}
