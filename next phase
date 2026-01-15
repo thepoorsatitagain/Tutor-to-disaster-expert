@@ -1,0 +1,115 @@
+
+
+import json
+import secrets
+from enum import Enum
+from dataclasses import dataclass, field
+from typing import Optional, Any
+
+# Extending existing pipeline components
+from src.core.pipeline import Pipeline, WorkerOutput, AuditorOutput, ResolverDecision, Verdict, Flag
+
+class HydraStatus(Enum):
+    TERMINated = "terminated"
+    ELEVATED = "elevated"
+    EXECUTING = "executing"
+
+@dataclass
+class KernelPacket:
+    """Localized, governable data object for recursive branches."""
+    packet_id: str
+    parent_id: Optional[str]
+    constraints: list[str]
+    elevated_truth: str
+    metadata: dict = field(default_factory=dict)
+
+class HydraPipeline(Pipeline):
+    """
+    Advanced recursive orchestrator implementing the 'Auditor Upgrade' 
+    and 'Worker Kill' mechanisms.
+    """
+    
+    def __init__(self, *args, workspace_manager=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.workspace = workspace_manager # Integrated from ExportManager
+        self.max_depth = 3
+
+    def run_recursive(self, query: str, context: dict, depth: int = 0) -> ResolverDecision:
+        """
+        Executes the recursive loop. If an Auditor triggers an upgrade, 
+        the process spawns a new sub-packet and recurses.
+        """
+        if depth >= self.max_depth:
+            self._audit("MAX_DEPTH_REACHED", {"session": context.get("session_id")})
+            return ResolverDecision(action="escalate", response="Maximum reasoning depth reached.")
+
+        # 1. Standard Worker/Auditor Execution
+        worker_out = self._run_worker(query, context, self.worker_system)
+        auditor_out = self._run_auditor(query, worker_out, context, self.auditor_system)
+
+        # 2. THE WORKER KILL: Immediate workspace purge on critical safety risk
+        if auditor_out.risk_level == "critical" or Flag.HARMFUL in auditor_out.flags:
+            return self._handle_worker_kill(context.get("session_id"), auditor_out.reasoning)
+
+        # 3. THE AUDITOR UPGRADE: Truth Elevation
+        if auditor_out.verdict == Verdict.REVISE and auditor_out.suggested_revision:
+            return self._perform_upgrade(query, auditor_out, context, depth)
+
+        # 4. Standard Resolution if no upgrade is triggered
+        return self._resolve(worker_out, auditor_out, context)
+
+    def _handle_worker_kill(self, session_id: str, reason: str) -> ResolverDecision:
+        """
+        Hard termination of the execution envelope and workspace purge.
+        Ensures no unsafe state persists in memory.
+        """
+        if self.workspace and session_id:
+            self.workspace.wipe_workspace(session_id, save_checkpoint=True)
+        
+        self._audit("WORKER_KILL_TRIGGERED", {"reason": reason})
+        return ResolverDecision(
+            action="reject",
+            response="System intervention: Security boundary violation. Process terminated.",
+            audit_notes=f"Kill triggered: {reason}"
+        )
+
+    def _perform_upgrade(self, query: str, auditor_out: AuditorOutput, context: dict, depth: int) -> ResolverDecision:
+        """
+        Promotes the Auditor's reasoning to Worker status and instantiates 
+        a new Auditor loop via a Sub-Packet.
+        """
+        # Generate Sub-Packet
+        packet = self._generate_sub_packet(auditor_out, context.get("packet_id"))
+        
+        # Elevate Truth: The Auditor's revision becomes the new Worker context
+        elevated_context = context.copy()
+        elevated_context["knowledge"] = packet.elevated_truth
+        elevated_context["packet_id"] = packet.packet_id
+        
+        self._audit("AUDITOR_UPGRADE", {
+            "depth": depth + 1,
+            "packet_id": packet.packet_id,
+            "constraints": packet.constraints
+        })
+
+        # Recurse with new specialized loop
+        return self.run_recursive(query, elevated_context, depth + 1)
+
+    def _generate_sub_packet(self, auditor_out: AuditorOutput, parent_id: Optional[str]) -> KernelPacket:
+        """
+        Creates a new isolated constraint packet based on the Auditor's findings.
+        """
+        return KernelPacket(
+            packet_id=secrets.token_hex(4),
+            parent_id=parent_id,
+            constraints=[f.value for f in auditor_out.flags],
+            elevated_truth=auditor_out.suggested_revision or ""
+        )
+Key Logic Divisions:
+The Kill Logic: Integrates the wipe_workspace function from export.py. If a critical safety flag is raised by the Auditor, the entire session workspace is purged, and a checkpoint is saved for forensic audit.
+
+Truth Elevation: Instead of just suggesting a fix, the Auditor's suggested_revision is injected as the primary knowledge context for the next layer.
+
+Sub-Packet Isolation: The KernelPacket acts as the carrier for "Context Lanes". It carries forward the specific flags (e.g., SAFETY, ACCURACY) as hard constraints for the subsequent Auditor instance.
+
+Recursive Depth: Prevents infinite loops by setting a max_depth (default 3), after which the system must escalate to a human or neutral steward.
